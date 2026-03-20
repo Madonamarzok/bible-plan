@@ -4,12 +4,13 @@ from datetime import datetime, timedelta
 import io
 import urllib.parse
 
-st.set_page_config(page_title="Do-Bible-Na Plans", layout="centered", page_icon="📖")
+# هنا رجعنا العناوين زي ما كانت بالضبط
+st.set_page_config(page_title="Bible Plans", layout="centered", page_icon="📖")
 
-st.title("📖 Do-Bible-Na Plans")
+st.title("📖 Bible Plans")
 st.subheader("خطتك الشخصية للكتاب المقدس")
 
-# --- 1. تحميل البيانات ---
+# --- باقي الكود بتاع تحميل البيانات والواجهة (زي ما هو) ---
 file_name = "Bible_Data.xlsx"
 
 try:
@@ -31,7 +32,6 @@ except Exception as e:
     st.error(f"❌ تأكدي من وجود ملف {file_name} على GitHub")
     all_books = []
 
-# --- 2. الواجهة ---
 if 'start_clicked' not in st.session_state:
     st.session_state.start_clicked = False
 
@@ -75,7 +75,7 @@ if st.session_state.start_clicked and all_books:
                     day_date = start_date + timedelta(days=d)
                     reading = " + ".join(all_chapters_list[idx : idx + count])
                     
-                    # إنشاء لينك جوجل كلندر السحري
+                    # لينك جوجل كلندر
                     base_url = "https://www.google.com/calendar/render?action=TEMPLATE"
                     title = urllib.parse.quote(f"قراءة الكتاب المقدس: {reading}")
                     date_str = day_date.strftime("%Y%m%d")
@@ -91,7 +91,6 @@ if st.session_state.start_clicked and all_books:
                 
                 df_final = pd.DataFrame(plan_data)
                 
-                # عرض الجدول مع تحويل اللينكات لروابط قابلة للضغط
                 st.write("اضغطي على اللينك في عمود التنبيه لإضافة اليوم لتقويم موبايلك:")
                 st.dataframe(
                     df_final,
@@ -101,7 +100,6 @@ if st.session_state.start_clicked and all_books:
                     hide_index=True,
                 )
                 
-                # زرار التحميل
                 buffer = io.BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                     df_final.drop(columns=["تنبيه 🔔"]).to_excel(writer, index=False, sheet_name='Plan')
