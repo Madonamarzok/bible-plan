@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import io
+import urllib.parse
 
 st.set_page_config(page_title="Do-Bible-Na Plans", layout="centered", page_icon="📖")
 
@@ -23,11 +24,11 @@ try:
     if col_name in df_bible.columns:
         all_books = df_bible[col_name].dropna().tolist()
     else:
-        st.error(f"❌ مشكلة في العناوين في ملف الإكسيل")
+        st.error(f"❌ مشكلة في عناوين الإكسيل")
         all_books = []
         
 except Exception as e:
-    st.error(f"❌ تأكدي إن ملف {file_name} موجود ومرفوع على GitHub")
+    st.error(f"❌ تأكدي من وجود ملف {file_name} على GitHub")
     all_books = []
 
 # --- 2. الواجهة ---
@@ -45,7 +46,7 @@ if st.session_state.start_clicked and all_books:
     with col1:
         start_date = st.date_input("📅 تاريخ البداية", datetime.now())
     with col2:
-        end_date = st.date_input("🏁 تاريخ النهاية", datetime.now() + timedelta(days=365))
+        end_date = st.date_input("🏁 تاريخ النهاية", datetime.now() + timedelta(days=30))
 
     selected_books = st.multiselect("📚 اختاري الأسفار:", all_books)
 
@@ -58,6 +59,7 @@ if st.session_state.start_clicked and all_books:
             
             if num_days > 0:
                 st.success(f"✅ الخطة جاهزة: {total_chapters} أصحاح على {num_days} يوم")
+                
                 all_chapters_list = []
                 for _, row in chosen_df.iterrows():
                     for ch in range(1, int(row[col_chapters]) + 1):
@@ -67,33 +69,51 @@ if st.session_state.start_clicked and all_books:
                 extra = total_chapters % num_days
                 plan_data = []
                 idx = 0
+                
                 for d in range(num_days):
                     count = ch_per_day + (1 if d < extra else 0)
                     day_date = start_date + timedelta(days=d)
+                    reading = " + ".join(all_chapters_list[idx : idx + count])
+                    
+                    # إنشاء لينك جوجل كلندر السحري
+                    base_url = "https://www.google.com/calendar/render?action=TEMPLATE"
+                    title = urllib.parse.quote(f"قراءة الكتاب المقدس: {reading}")
+                    date_str = day_date.strftime("%Y%m%d")
+                    cal_link = f"{base_url}&text={title}&dates={date_str}/{date_str}"
+                    
                     plan_data.append({
                         "اليوم": d + 1,
                         "التاريخ": day_date.strftime("%Y-%m-%d"),
-                        "القراءة": " + ".join(all_chapters_list[idx : idx + count])
+                        "القراءة": reading,
+                        "تنبيه 🔔": cal_link
                     })
                     idx += count
                 
-                df_final_plan = pd.DataFrame(plan_data)
-                st.dataframe(df_final_plan, hide_index=True)
+                df_final = pd.DataFrame(plan_data)
                 
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    df_final_plan.to_excel(writer, index=False, sheet_name='Reading Plan')
-                
-                st.download_button(
-                    label="📥 تحميل الجدول (Excel)",
-                    data=buffer.getvalue(),
-                    file_name=f"My_Bible_Plan.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                # عرض الجدول مع تحويل اللينكات لروابط قابلة للضغط
+                st.write("اضغطي على اللينك في عمود التنبيه لإضافة اليوم لتقويم موبايلك:")
+                st.dataframe(
+                    df_final,
+                    column_config={
+                        "تنبيه 🔔": st.column_config.LinkColumn("إضافة للتقويم 📅")
+                    },
+                    hide_index=True,
                 )
                 
-                st.info("💡 نصيحة: تقدر تحمل الملف وتضيف المواعيد لتقويم موبايلك عشان متنساش تقرأ كل يوم.")
+                # زرار التحميل
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df_final.drop(columns=["تنبيه 🔔"]).to_excel(writer, index=False, sheet_name='Plan')
+                
+                st.download_button(
+                    label="📥 تحميل الجدول كاملاً (Excel)",
+                    data=buffer.getvalue(),
+                    file_name="My_Bible_Plan.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
                 st.balloons()
             else:
-                st.warning("⚠️ تاريخ النهاية لازم يكون بعد تاريخ البداية!")
+                st.warning("⚠️ تاريخ النهاية غير منطقي!")
         else:
-            st.warning("⚠️ من فضلك اختاري سفر واحد على الأقل.")
+            st.warning("⚠️ اختاري سفر أولاً.")
