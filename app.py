@@ -91,7 +91,7 @@ if st.session_state.start_clicked and all_books:
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
                 
-                st.info("💡 نصيحة: تقدري تفتحي الملف وتضيفي المواعيد لتقويم موبايلك.")
+                st.info("💡 نصيحة: تقدر تحمل الملف وتضيف المواعيد لتقويم موبايلك عشان متنساش تقرأ كل يوم.")
                 st.balloons()
             else:
                 st.warning("⚠️ تاريخ النهاية لازم يكون بعد تاريخ البداية!")
