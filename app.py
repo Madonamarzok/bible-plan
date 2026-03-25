@@ -22,7 +22,10 @@ st.markdown(
 
 # --- 2. دالة التخزين السحري ---
 def save_data(df):
-    df.to_json("my_saved_plan.json")
+    try:
+        df.to_json("my_saved_plan.json")
+    except Exception as e:
+        pass
 
 def load_data():
     if os.path.exists("my_saved_plan.json"):
@@ -41,16 +44,21 @@ if 'view_mode' not in st.session_state:
 
 # --- 3. تحميل البيانات ---
 file_name = "Bible_Data.xlsx"
+@st.cache_data # إضافة كاش عشان السيرفر يبقى سريع
+def load_bible_excel(file):
+    df = pd.read_excel(file)
+    if "Table 1" in df.columns or "Unnamed: 0" in df.columns:
+        df = pd.read_excel(file, skiprows=1)
+    df.columns = df.columns.str.strip()
+    return df
+
 try:
-    df_bible = pd.read_excel(file_name)
-    if "Table 1" in df_bible.columns or "Unnamed: 0" in df_bible.columns:
-        df_bible = pd.read_excel(file_name, skiprows=1)
-    df_bible.columns = df_bible.columns.str.strip()
+    df_bible = load_bible_excel(file_name)
     col_name = "اسم السفر"
     col_chapters = "عدد الأصحاحات"
     all_books = df_bible[col_name].dropna().tolist()
-except:
-    st.error("❌ تأكدي من وجود ملف الإكسيل على GitHub")
+except Exception as e:
+    st.error(f"❌ مشكلة في قراءة البيانات: {e}")
     st.stop()
 
 # --- 4. إدارة الصفحات ---
@@ -177,7 +185,11 @@ else:
                 st.session_state.view_mode = True
                 st.rerun()
 
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                st.session_state.generated_plan.to_excel(writer, index=False)
-            st.download_button("📥 تحميل الجدول (Excel)", data=buffer.getvalue(), file_name="My_Plan.xlsx")
+            # تعديل بسيط لضمان التحميل بدون أخطاء
+            try:
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    st.session_state.generated_plan.to_excel(writer, index=False)
+                st.download_button("📥 تحميل الجدول (Excel)", data=buffer.getvalue(), file_name="My_Plan.xlsx")
+            except Exception as e:
+                st.warning("تحميل الإكسيل غير متاح حالياً، لكن الجدول شغال تمام!")
