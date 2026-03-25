@@ -24,9 +24,11 @@ except:
     st.error("❌ تأكدي من ملف الإكسيل")
     st.stop()
 
-# --- 2. إدارة سلة القراءات ---
-if 'reading_list' not in st.session_state:
-    st.session_state.reading_list = []
+# --- 2. إدارة سلة القراءات (تخزين التفاصيل) ---
+if 'display_list' not in st.session_state:
+    st.session_state.display_list = [] # لعرض النصوص (سفر كذا من كذا لكذا)
+if 'actual_chapters' not in st.session_state:
+    st.session_state.actual_chapters = [] # لحساب الأصحاحات الفعلية للجدول
 
 # --- 3. الواجهة ---
 col1, col2 = st.columns(2)
@@ -49,29 +51,38 @@ if selected_book:
         to_ch = st.number_input("إلى أصحاح:", min_value=from_ch, max_value=max_ch, value=max_ch)
     
     if st.button("➕ إضافة للسلة"):
-        # إضافة الأصحاحات المختارة لقائمة الجلسة
-        new_chapters = [f"{selected_book} {ch}" for ch in range(from_ch, to_ch + 1)]
-        st.session_state.reading_list.extend(new_chapters)
-        st.success(f"تم إضافة {len(new_chapters)} أصحاح من {selected_book}")
+        # 1. حفظ النص للعرض
+        summary_text = f"📖 سفر **{selected_book}** (من أصحاح **{from_ch}** إلى **{to_ch}**)"
+        st.session_state.display_list.append(summary_text)
+        
+        # 2. حفظ الأصحاحات الفعلية للحسابات
+        new_chaps = [f"{selected_book} {ch}" for ch in range(from_ch, to_ch + 1)]
+        st.session_state.actual_chapters.extend(new_chaps)
+        st.success("تمت الإضافة بنجاح!")
 
-# --- 4. عرض السلة الحالية ---
-if st.session_state.reading_list:
+# --- 4. عرض ملخص الخطة (طلبك هنا!) ---
+if st.session_state.display_list:
     st.write("---")
-    st.markdown("### 📝 الأجزاء المختارة حالياً:")
-    # عرض ملخص بسيط للي تم اختياره
-    st.info(f"إجمالي الأصحاحات المضافة: {len(st.session_state.reading_list)}")
+    st.markdown("### 📝 تفاصيل خطتك الحالية:")
     
-    if st.button("🗑️ مسح السلة والبدء من جديد"):
-        st.session_state.reading_list = []
+    # عرض كل جزء في سطر لوحده بنقطة
+    for item in st.session_state.display_list:
+        st.write(f"* {item}")
+    
+    st.info(f"🔢 إجمالي الأصحاحات المجمعة: **{len(st.session_state.actual_chapters)}**")
+    
+    if st.button("🗑️ مسح السلة"):
+        st.session_state.display_list = []
+        st.session_state.actual_chapters = []
         st.rerun()
 
     st.write("---")
     if st.button("✨ توليد الجدول النهائي ✨"):
-        all_chapters_list = st.session_state.reading_list
+        all_chapters_list = st.session_state.actual_chapters
         total_chapters = len(all_chapters_list)
         num_days = (end_date - start_date).days + 1
         
-        if num_days > 0:
+        if num_days > 0 and total_chapters > 0:
             ch_per_day = total_chapters // num_days
             extra = total_chapters % num_days
             plan_data = []
@@ -84,6 +95,7 @@ if st.session_state.reading_list:
                 day_date = start_date + timedelta(days=d)
                 reading = " + ".join(all_chapters_list[idx : idx + count])
                 
+                # لينك جوجل كلندر
                 base_url = "https://www.google.com/calendar/render?action=TEMPLATE"
                 title = urllib.parse.quote(f"قراءة الكتاب المقدس: {reading}")
                 date_str = day_date.strftime("%Y%m%d")
@@ -93,26 +105,20 @@ if st.session_state.reading_list:
                     "اليوم": d + 1,
                     "التاريخ": day_date.strftime("%Y-%m-%d"),
                     "القراءة": reading,
-                    "تنبيه 🔔": cal_link
+                    "إضافة للتقويم 📅": cal_link
                 })
                 idx += count
             
             df_final = pd.DataFrame(plan_data)
             st.dataframe(
                 df_final,
-                column_config={"تنبيه 🔔": st.column_config.LinkColumn("إضافة للتقويم 📅")},
+                column_config={"إضافة للتقويم 📅": st.column_config.LinkColumn("اضغط للتنبيه 🔔")},
                 hide_index=True,
             )
             
-            # زرار التحميل
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                df_final.drop(columns=["تنبيه 🔔"]).to_excel(writer, index=False, sheet_name='Plan')
+                df_final.drop(columns=["إضافة للتقويم 📅"]).to_excel(writer, index=False, sheet_name='Plan')
             
-            st.download_button(
-                label="📥 تحميل الجدول (Excel)",
-                data=buffer.getvalue(),
-                file_name="My_Bible_Plan.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+            st.download_button(label="📥 تحميل الجدول (Excel)", data=buffer.getvalue(), file_name="My_Bible_Plan.xlsx")
             st.balloons()
