@@ -1,9 +1,10 @@
 import streamlit as st
-import pd
+import pandas as pd
 from datetime import datetime, timedelta
 import io
 import urllib.parse
 import json
+import os
 
 # --- 1. إعداد الصفحة ومنع الـ Refresh ---
 st.set_page_config(page_title="Bible Plans", layout="centered", page_icon="📖")
@@ -24,10 +25,12 @@ def save_data(df):
     df.to_json("my_saved_plan.json")
 
 def load_data():
-    try:
-        return pd.read_json("my_saved_plan.json")
-    except:
-        return None
+    if os.path.exists("my_saved_plan.json"):
+        try:
+            return pd.read_json("my_saved_plan.json")
+        except:
+            return None
+    return None
 
 # تهيئة الذاكرة
 if 'generated_plan' not in st.session_state:
@@ -112,15 +115,10 @@ else:
         
         if st.button("➕ إضافة للسلة"):
             st.session_state.display_list.append(f"📖 {selected_book} ({from_ch}-{to_ch})")
-            
-            # حساب الأصحاحات الجديدة المضافة
             new_chaps = [f"{selected_book} {ch}" for ch in range(from_ch, to_ch + 1)]
             st.session_state.actual_chapters.extend(new_chaps)
             
-            # حساب الإجمالي الكلي في السلة
             total_chapters_count = len(st.session_state.actual_chapters)
-            
-            # رسالة النجاح بالعدّاد الجديد
             st.success(f"تمت الإضافة! كدة عندك إجمالي {total_chapters_count} أصحاح في خطتك.. عاش يا بطلة! ✨")
 
     if st.session_state.display_list:
@@ -132,7 +130,6 @@ else:
             st.session_state.display_list = []
             st.session_state.actual_chapters = []
             st.session_state.generated_plan = None
-            import os
             if os.path.exists("my_saved_plan.json"):
                 os.remove("my_saved_plan.json")
             st.rerun()
