@@ -3,17 +3,15 @@ import pandas as pd
 from datetime import datetime, timedelta
 import io
 import urllib.parse
+import json
 
-# --- 1. إعداد الصفحة ومنع الـ Refresh الرخم ---
+# --- 1. إعداد الصفحة ومنع الـ Refresh ---
 st.set_page_config(page_title="Bible Plans", layout="centered", page_icon="📖")
 
-# كود سحري لمنع الصفحة إنها تتشد لتحت وتعمل ريفريش على الموبايل
 st.markdown(
     """
     <style>
-    body {
-        overscroll-behavior-y: contain;
-    }
+    body { overscroll-behavior-y: contain; }
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     </style>
@@ -21,13 +19,25 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- 2. تهيئة الذاكرة ---
+# --- 2. دالة التخزين السحري (للحفظ والاسترجاع) ---
+# دي بتخلي البرنامج يقرأ ويحفظ في ملف صغير اسمه 'user_plan.json' على الموبايل
+def save_data(df):
+    df.to_json("my_saved_plan.json")
+
+def load_data():
+    try:
+        return pd.read_json("my_saved_plan.json")
+    except:
+        return None
+
+# تهيئة الذاكرة
 if 'generated_plan' not in st.session_state:
-    st.session_state.generated_plan = None
+    st.session_state.generated_plan = load_data() # يحاول يحمل الخطة القديمة أول ما يفتح
+
 if 'view_mode' not in st.session_state:
     st.session_state.view_mode = False
 
-# --- 3. تحميل البيانات ---
+# --- 3. تحميل بيانات الإكسيل ---
 file_name = "Bible_Data.xlsx"
 try:
     df_bible = pd.read_excel(file_name)
@@ -38,16 +48,15 @@ try:
     col_chapters = "عدد الأصحاحات"
     all_books = df_bible[col_name].dropna().tolist()
 except:
-    st.error("❌ تأكدي من ملف الإكسيل على GitHub")
+    st.error("❌ تأكدي من وجود ملف الإكسيل على GitHub")
     st.stop()
 
-# --- 4. إدارة التنقل بين "الإعداد" و "العرض" ---
+# --- 4. إدارة الصفحات ---
 if st.session_state.view_mode and st.session_state.generated_plan is not None:
-    # ---------------- صفحة عرض الجدول والمتابعة ----------------
     st.title("✅ متابعة إنجازك اليومي")
-    st.write("علمي على الأصحاحات اللي قريتيها.. ربنا معاكي!")
+    st.info("الجدول ده محفوظ على موبايلك أوتوماتيك 💾")
 
-    # عرض الجدول كـ Data Editor
+    # عرض الجدول وتحديثه
     edited_df = st.data_editor(
         st.session_state.generated_plan,
         column_config={
@@ -59,7 +68,10 @@ if st.session_state.view_mode and st.session_state.generated_plan is not None:
         use_container_width=True
     )
     
-    st.session_state.generated_plan = edited_df
+    # حفظ التعديلات فوراً في الملف السحري
+    if not edited_df.equals(st.session_state.generated_plan):
+        st.session_state.generated_plan = edited_df
+        save_data(edited_df)
 
     st.write("---")
     if st.button("🔙 العودة لتعديل الخطة"):
@@ -67,9 +79,14 @@ if st.session_state.view_mode and st.session_state.generated_plan is not None:
         st.rerun()
 
 else:
-    # ---------------- صفحة إعداد الخطة ----------------
     st.title("📖 Bible Plans")
     st.subheader("خطتك الشخصية المتقدمة")
+
+    # لو فيه خطة قديمة محفوظة، نعرض زرار يفتحها فوراً
+    if st.session_state.generated_plan is not None:
+        if st.sidebar.button("📂 استكمال خطتي المحفوظة"):
+            st.session_state.view_mode = True
+            st.rerun()
 
     if 'display_list' not in st.session_state:
         st.session_state.display_list = []
@@ -112,6 +129,10 @@ else:
             st.session_state.display_list = []
             st.session_state.actual_chapters = []
             st.session_state.generated_plan = None
+            # نمسح الملف المحفوظ كمان
+            import os
+            if os.path.exists("my_saved_plan.json"):
+                os.remove("my_saved_plan.json")
             st.rerun()
 
         if st.button("✨ توليد الجدول النهائي ✨"):
@@ -146,7 +167,9 @@ else:
                     })
                     idx += count
                 
-                st.session_state.generated_plan = pd.DataFrame(plan_data)
+                new_df = pd.DataFrame(plan_data)
+                st.session_state.generated_plan = new_df
+                save_data(new_df) # حفظ الخطة الجديدة فوراً
                 st.balloons()
 
         if st.session_state.generated_plan is not None:
