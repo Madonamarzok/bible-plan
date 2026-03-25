@@ -4,15 +4,30 @@ from datetime import datetime, timedelta
 import io
 import urllib.parse
 
+# --- 1. إعداد الصفحة ومنع الـ Refresh الرخم ---
 st.set_page_config(page_title="Bible Plans", layout="centered", page_icon="📖")
 
-# --- 1. تهيئة الذاكرة (عشان يفتكر جدولك) ---
+# كود سحري لمنع الصفحة إنها تتشد لتحت وتعمل ريفريش على الموبايل
+st.markdown(
+    """
+    <style>
+    body {
+        overscroll-behavior-y: contain;
+    }
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# --- 2. تهيئة الذاكرة ---
 if 'generated_plan' not in st.session_state:
     st.session_state.generated_plan = None
 if 'view_mode' not in st.session_state:
     st.session_state.view_mode = False
 
-# --- 2. تحميل البيانات ---
+# --- 3. تحميل البيانات ---
 file_name = "Bible_Data.xlsx"
 try:
     df_bible = pd.read_excel(file_name)
@@ -23,28 +38,27 @@ try:
     col_chapters = "عدد الأصحاحات"
     all_books = df_bible[col_name].dropna().tolist()
 except:
-    st.error("❌ تأكدي من ملف الإكسيل")
+    st.error("❌ تأكدي من ملف الإكسيل على GitHub")
     st.stop()
 
-# --- 3. إدارة التنقل بين "الإعداد" و "العرض" ---
+# --- 4. إدارة التنقل بين "الإعداد" و "العرض" ---
 if st.session_state.view_mode and st.session_state.generated_plan is not None:
     # ---------------- صفحة عرض الجدول والمتابعة ----------------
     st.title("✅ متابعة إنجازك اليومي")
     st.write("علمي على الأصحاحات اللي قريتيها.. ربنا معاكي!")
 
-    # عرض الجدول كـ Data Editor عشان التشيك بوكس يشتغل
+    # عرض الجدول كـ Data Editor
     edited_df = st.data_editor(
         st.session_state.generated_plan,
         column_config={
             "خلصت؟ ✅": st.column_config.CheckboxColumn("خلصت؟ ✅", default=False),
-            "تنبيه مشترك 🔔": None # نخفيه هنا عشان الشكل يبقى أنضف
+            "تنبيه مشترك 🔔": None 
         },
         disabled=["اليوم", "التاريخ", "القراءة"],
         hide_index=True,
         use_container_width=True
     )
     
-    # حفظ حالة التشيك بوكس فوراً
     st.session_state.generated_plan = edited_df
 
     st.write("---")
@@ -53,7 +67,7 @@ if st.session_state.view_mode and st.session_state.generated_plan is not None:
         st.rerun()
 
 else:
-    # ---------------- صفحة إعداد الخطة (القديمة) ----------------
+    # ---------------- صفحة إعداد الخطة ----------------
     st.title("📖 Bible Plans")
     st.subheader("خطتك الشخصية المتقدمة")
 
@@ -135,14 +149,12 @@ else:
                 st.session_state.generated_plan = pd.DataFrame(plan_data)
                 st.balloons()
 
-        # زرار عرض الجدول (الجديد)
         if st.session_state.generated_plan is not None:
             st.write("---")
             if st.button("📲 عرض الجدول وتتبع الإنجاز"):
                 st.session_state.view_mode = True
                 st.rerun()
 
-            # زرار التحميل يفضل موجود
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 st.session_state.generated_plan.to_excel(writer, index=False)
