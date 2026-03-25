@@ -1,5 +1,5 @@
 import streamlit as st
-import pandas as pd
+import pd
 from datetime import datetime, timedelta
 import io
 import urllib.parse
@@ -19,8 +19,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- 2. دالة التخزين السحري (للحفظ والاسترجاع) ---
-# دي بتخلي البرنامج يقرأ ويحفظ في ملف صغير اسمه 'user_plan.json' على الموبايل
+# --- 2. دالة التخزين السحري ---
 def save_data(df):
     df.to_json("my_saved_plan.json")
 
@@ -32,12 +31,12 @@ def load_data():
 
 # تهيئة الذاكرة
 if 'generated_plan' not in st.session_state:
-    st.session_state.generated_plan = load_data() # يحاول يحمل الخطة القديمة أول ما يفتح
+    st.session_state.generated_plan = load_data()
 
 if 'view_mode' not in st.session_state:
     st.session_state.view_mode = False
 
-# --- 3. تحميل بيانات الإكسيل ---
+# --- 3. تحميل البيانات ---
 file_name = "Bible_Data.xlsx"
 try:
     df_bible = pd.read_excel(file_name)
@@ -56,7 +55,6 @@ if st.session_state.view_mode and st.session_state.generated_plan is not None:
     st.title("✅ متابعة إنجازك اليومي")
     st.info("الجدول ده محفوظ على موبايلك أوتوماتيك 💾")
 
-    # عرض الجدول وتحديثه
     edited_df = st.data_editor(
         st.session_state.generated_plan,
         column_config={
@@ -68,7 +66,6 @@ if st.session_state.view_mode and st.session_state.generated_plan is not None:
         use_container_width=True
     )
     
-    # حفظ التعديلات فوراً في الملف السحري
     if not edited_df.equals(st.session_state.generated_plan):
         st.session_state.generated_plan = edited_df
         save_data(edited_df)
@@ -82,7 +79,6 @@ else:
     st.title("📖 Bible Plans")
     st.subheader("خطتك الشخصية المتقدمة")
 
-    # لو فيه خطة قديمة محفوظة، نعرض زرار يفتحها فوراً
     if st.session_state.generated_plan is not None:
         if st.sidebar.button("📂 استكمال خطتي المحفوظة"):
             st.session_state.view_mode = True
@@ -116,9 +112,16 @@ else:
         
         if st.button("➕ إضافة للسلة"):
             st.session_state.display_list.append(f"📖 {selected_book} ({from_ch}-{to_ch})")
+            
+            # حساب الأصحاحات الجديدة المضافة
             new_chaps = [f"{selected_book} {ch}" for ch in range(from_ch, to_ch + 1)]
             st.session_state.actual_chapters.extend(new_chaps)
-            st.success("تمت الإضافة!")
+            
+            # حساب الإجمالي الكلي في السلة
+            total_chapters_count = len(st.session_state.actual_chapters)
+            
+            # رسالة النجاح بالعدّاد الجديد
+            st.success(f"تمت الإضافة! كدة عندك إجمالي {total_chapters_count} أصحاح في خطتك.. عاش يا بطلة! ✨")
 
     if st.session_state.display_list:
         st.write("---")
@@ -129,7 +132,6 @@ else:
             st.session_state.display_list = []
             st.session_state.actual_chapters = []
             st.session_state.generated_plan = None
-            # نمسح الملف المحفوظ كمان
             import os
             if os.path.exists("my_saved_plan.json"):
                 os.remove("my_saved_plan.json")
@@ -169,7 +171,7 @@ else:
                 
                 new_df = pd.DataFrame(plan_data)
                 st.session_state.generated_plan = new_df
-                save_data(new_df) # حفظ الخطة الجديدة فوراً
+                save_data(new_df)
                 st.balloons()
 
         if st.session_state.generated_plan is not None:
